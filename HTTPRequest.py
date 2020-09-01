@@ -12,11 +12,17 @@ class HTTPRequest:
     def set_url(self, url):
         self.url = url
 
-    def append_header(self, name, value):
+    def set_header(self, name, value):
         self.headers[name] = value
 
-    def append_parameter(self, name, value):
+    def set_headers(self, headers):
+        self.headers = headers
+
+    def set_parameter(self, name, value):
         self.parameters[name] = value
+
+    def set_parameters(self, parameters):
+        self.parameters = parameters
 
     def get_method(self):
         return self.method
