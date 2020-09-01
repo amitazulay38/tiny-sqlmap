@@ -22,11 +22,11 @@ def send_request(request):
 
 def send_sql_request(request, parameter, query):
     """
-
-    :param request:
-    :param parameter:
-    :param query:
-    :return:
+    sends sql query request
+    :param request: the HTTPRequest object we will modify
+    :param parameter: the exploitable parameter
+    :param query: the query we want to send in the exploitable parameter
+    :return: the reponse object
     """
     request.set_parameter(parameter, query)
     return send_request(request)
