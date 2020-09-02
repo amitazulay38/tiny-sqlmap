@@ -1,0 +1,15 @@
+POST http://35.190.155.168/087b66ecab/login HTTP/1.1
+Host: 35.190.155.168
+Connection: keep-alive
+Content-Length: 27
+Cache-Control: max-age=0
+Upgrade-Insecure-Requests: 1
+Origin: http://35.190.155.168
+Content-Type: application/x-www-form-urlencoded
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Referer: http://35.190.155.168/087b66ecab/login
+Accept-Encoding: gzip, deflate
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+
+username=test&password=test
