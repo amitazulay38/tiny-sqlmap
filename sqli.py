@@ -1,10 +1,12 @@
 import requests
 import sys
 import copy
+import os
 
 from DB import DB
 from Table import Table
 from HTTPRequest import HTTPRequest
+from UserFlags import UserFlags
 from Enums import HTTP_Types
 from BooleanBasedInjection import *
 from HandleRequests import *
@@ -17,6 +19,9 @@ def parse_request_file(request_filepath):
     :param request_filepath: the path to the txt file
     :return: a HTTPRequest object containing all the data
     """
+    if not os.path.exists(request_filepath):
+        print(FILE_NOT_FOUND_ERROR)
+        exit(0)
     with open(request_filepath) as fp:
         lines = fp.read().splitlines()
     request = HTTPRequest()
@@ -87,10 +92,59 @@ async def find_comment_sign(request, parameter, session):
     print(SQLI_NO_COMMENT_SIGN_DETECTED)
     return NOT_DETECTED
 
+def parse_user_input():
+    flags = UserFlags()
+    i = 1
+    while (i < len(sys.argv)):
+        if sys.argv[i] == READ_REQUEST_FILE_FLAG:
+            i = i + 1
+            flags.set_request_file_path(sys.argv[i])
+        elif sys.argv[i] == PARAMETER_FLAG:
+            i = i + 1
+            flags.set_parameter(sys.argv[i])
+        elif sys.argv[i] == RETURN_DBNAMES_FLAG:
+            flags.set_action(FIND_DB_NAMES)
+        elif sys.argv[i] == RETURN_TABLESNAMES_FLAG:
+            flags.set_action(FIND_TABLE_NAMES)
+        elif sys.argv[i] == DUMP_TABLE_FLAG:
+            flags.set_action(DUMP_TABLE)
+        elif sys.argv[i] == TABLE_FLAG:
+            i = i + 1
+            flags.set_table_name(sys.argv[i])
+        elif sys.argv[i] == DB_FLAG:
+            i = i + 1
+            flags.set_db_name(sys.argv[i])
+        elif sys.argv[i] == HELP_FLAG:
+            print(HELLO_MESSAGE)
+            exit(0)
+        else:
+            print(ILLEGAL_USE_OF_FLAGS_ERROR)
+            exit(0)
+
+        i = i + 1
+    if flags.get_request_file_path() == "":
+        print(REQUEST_FILE_NOT_SPECIFIED_ERROR)
+        exit(0)
+    if flags.get_parameter() == "":
+        print(PARAMETER_NOT_SPECIFIED_ERROR)
+        exit(0)
+    if flags.get_action() == NO_ACTION:
+        print(ACTION_NOT_SPECIFIED_ERROR)
+        exit(0)
+    if flags.get_action() == FIND_TABLE_NAMES and flags.get_db_name() == "":
+        print(TABLES_DBNAME_NOT_SPECIFIED_ERROR)
+        exit(0)
+    if flags.get_action() == DUMP_TABLE and (flags.get_db_name() == "" or flags.get_table_name() == ""):
+        print(DUMP_NOT_SPECIFIED_ERROR)
+        exit(0)
+
+    return flags
+
 
 async def main():
-    origin_request = parse_request_file("C:\\Users\\Amit\\Downloads\\request.txt")
-    parameter = "username"
+    flags = parse_user_input()
+    origin_request = parse_request_file(flags.get_request_file_path())
+    parameter = flags.get_parameter()
     request = get_request_copy(origin_request)
     async with aiohttp.ClientSession() as session:
         is_there_sqli = await find_sqli(request, parameter, session)
@@ -99,7 +153,7 @@ async def main():
         comment = await find_comment_sign(request, parameter, session)
         if comment == NOT_DETECTED:
             exit(0)
-        await boolean_based_injection(request, parameter, comment, session)
+        await boolean_based_injection(request, parameter, comment, session, flags)
 
 
 if __name__ == '__main__':

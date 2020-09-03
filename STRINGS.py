@@ -4,6 +4,20 @@ SQLI_NOT_DETECTED_MSG = "SQLi not detected. \n"
 SQLI_NO_COMMENT_SIGN_DETECTED = "Cannot find commenting option. \n"
 BOOLEAN_BSQLI_ENABLED = "Boolean blind sqli is possible! \n"
 BOOLEAN_BSQLI_DISABLED = "Boolean blind sqli is not possible. \n"
+ILLEGAL_USE_OF_FLAGS_ERROR = "Illegal use of flags! \n"
+REQUEST_FILE_NOT_SPECIFIED_ERROR = "You must use the r flag and specify a request file! \n"
+PARAMETER_NOT_SPECIFIED_ERROR = "You must use the p flag and specify a parameter you want to check! \n"
+ACTION_NOT_SPECIFIED_ERROR = "You specify the action you want to do! \n"
+TABLES_DBNAME_NOT_SPECIFIED_ERROR = "can't use --tables without specifying a db! \n"
+DUMP_NOT_SPECIFIED_ERROR = "can't use --dump without specifying a db and a table! \n"
+HELLO_MESSAGE = "python sqli.py -r request_file -p parameter [-d db_name] [-t table_name] ACTION \n" \
+                "-r : a path to the request file we will copy. \n" \
+                "-p : the get / post parameter we want to test. \n" \
+                "ACTION: \n" \
+                "--dbs : returns all the db names. \n" \
+                "--tables : returns all the tables names in a specified db. \n" \
+                "--dump : dumps the data from a specified table and db."
+FILE_NOT_FOUND_ERROR = "Request file not found! \n"
 
 # chars and seperators
 HEADER_SEP = ": "
@@ -18,6 +32,10 @@ NOT_DETECTED = "no"
 BOOLEAN_FALSE_RESPONSE_INDEX = 0
 BOOLEAN_TRUE_RESPONSE_INDEX = 1
 STRING_PLACEHOLDER = "%s"
+FIND_DB_NAMES = 0
+FIND_TABLE_NAMES = 1
+DUMP_TABLE = 2
+NO_ACTION = -1
 
 # constants
 MAX_NUM_OF_DBS_TO_CHECK = 20
@@ -41,7 +59,12 @@ UPPER = "UPPER"
 # flags for operating the program
 READ_REQUEST_FILE_FLAG = '-r'
 PARAMETER_FLAG = "-p"
-
+RETURN_DBNAMES_FLAG = "--dbs"
+RETURN_TABLESNAMES_FLAG = "--tables"
+DUMP_TABLE_FLAG = "--dump"
+DB_FLAG = "-d"
+TABLE_FLAG = "-t"
+HELP_FLAG = "-h"
 # lists of Strings
 SQL_ERRORS = ["you have an error in your sql syntax"]
 SQL_COMMENTS = [" -- ", "#"]
