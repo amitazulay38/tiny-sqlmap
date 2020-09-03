@@ -64,6 +64,7 @@ async def find_sqli(request, parameter, session):
     characters and checking whether the response contains an error message
     :param request: a HTTPRequest object whose data we will change and send
     :param parameter: the GET/POST parameter we want to check
+    :param session: the aiohttp session
     :return: the character causing the error, or NOT_DETECTED string if no error was caused
     """
     for char in SQLI_CHARS:
@@ -81,6 +82,7 @@ async def find_comment_sign(request, parameter, session):
     checks which char is valid as a comment starter
     :param request: a HTTPRequest object whose data we will change and send
     :param parameter: the GET/POST parameter which is exploitable
+    :param session: the aiohttp session
     :return: the character marking a comment, or NOT_DETECTED string if no error was caused
     """
     for sign in SQL_COMMENTS:
@@ -93,6 +95,10 @@ async def find_comment_sign(request, parameter, session):
     return NOT_DETECTED
 
 def parse_user_input():
+    """
+    parses the user input
+    :return: an UserFlags object containing the user's flags for running the program
+    """
     flags = UserFlags()
     i = 1
     while (i < len(sys.argv)):
